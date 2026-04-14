@@ -38,6 +38,7 @@ class ParsedRevisionEntry:
     old_body: str | None
     new_body: str | None
     reason: str | None
+    title: str | None = None
 
 
 @dataclass
