@@ -28,6 +28,36 @@ def load_dotenv(path: Path) -> None:
         os.environ.setdefault(k.strip(), v.strip())
 
 
+def _split_sql(sql: str) -> list[str]:
+    """Split SQL into statements, respecting dollar-quoted blocks ($$...$$)."""
+    stmts: list[str] = []
+    buf: list[str] = []
+    in_dollar_quote = False
+    i = 0
+    while i < len(sql):
+        if not in_dollar_quote and sql[i:i+2] == "$$":
+            in_dollar_quote = True
+            buf.append("$$")
+            i += 2
+        elif in_dollar_quote and sql[i:i+2] == "$$":
+            in_dollar_quote = False
+            buf.append("$$")
+            i += 2
+        elif not in_dollar_quote and sql[i] == ";":
+            stmt = "".join(buf).strip()
+            if stmt:
+                stmts.append(stmt)
+            buf = []
+            i += 1
+        else:
+            buf.append(sql[i])
+            i += 1
+    last = "".join(buf).strip()
+    if last:
+        stmts.append(last)
+    return stmts
+
+
 async def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent
     load_dotenv(repo_root / ".env")
@@ -44,7 +74,23 @@ async def main() -> int:
     conn = await asyncpg.connect(url)
     try:
         print(f"Applying {schema_path.relative_to(repo_root)} ({len(sql)} bytes) ...")
-        await conn.execute(sql)
+        # Execute statement by statement so pg_trgm-dependent lines can be skipped
+        # when the extension is unavailable (shared RDS without superuser).
+        # Split on ";" but respect dollar-quoted blocks ($$...$$).
+        stmts = _split_sql(sql)
+        skipped = 0
+        for stmt in stmts:
+            try:
+                await conn.execute(stmt)
+            except asyncpg.InsufficientPrivilegeError as e:
+                print(f"  SKIP (no privilege): {stmt[:80].replace(chr(10),' ')} ...")
+                skipped += 1
+            except asyncpg.UndefinedObjectError as e:
+                # gin_trgm_ops not available without pg_trgm
+                print(f"  SKIP (undefined object): {stmt[:80].replace(chr(10),' ')} ...")
+                skipped += 1
+        if skipped:
+            print(f"  ({skipped} statements skipped — pg_trgm not available)")
         tables = await conn.fetch(
             "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
         )
