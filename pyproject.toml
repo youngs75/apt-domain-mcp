@@ -3,7 +3,6 @@ name = "apt-domain-mcp"
 version = "0.1.0"
 description = "공동주택 도메인 지식(관리규약·회의록·운영산출물) MCP 서버 — 단지별 멀티테넌트"
 requires-python = ">=3.12"
-readme = "README.md"
 dependencies = [
     "mcp>=1.0.0",
     "starlette>=0.37",
