@@ -1,0 +1,28 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.env
+.env.*
+!.env.example
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local dev artifacts
+*.db
+*.sqlite
+data/
+.claude/
+.ai/sessions/
+
+# Synthetic output (regenerable from markdown)
+synthetic/*.pdf
+synthetic/generated/
+
+# IDE
+.vscode/
+.idea/
