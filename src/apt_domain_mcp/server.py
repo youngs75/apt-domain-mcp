@@ -84,14 +84,15 @@ def build_mcp() -> FastMCP:
     @mcp.tool(
         name="search_regulation",
         description=(
-            "관리규약 조문을 키워드(body/title ILIKE)로 검색합니다. "
-            "complex_id 필수. version 미지정 시 현행(is_current) 버전 대상. "
-            "category로 카테고리 필터링 가능 (예: '주차', '반려동물', '관리비')."
+            "관리규약 조문을 검색합니다. complex_id 필수. query(키워드, body/title ILIKE) "
+            "또는 category(카테고리 정확 매치) 중 최소 하나를 제공해야 하며 둘 다 병용 가능. "
+            "version 미지정 시 현행(is_current) 버전 대상. "
+            "category 예시: '주차', '반려동물', '관리비', '층간소음'."
         ),
     )
     async def _search_regulation(
         complex_id: str,
-        query: str,
+        query: str | None = None,
         category: str | None = None,
         version: int | None = None,
         limit: int = 10,
