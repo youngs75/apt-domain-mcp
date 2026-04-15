@@ -7,12 +7,25 @@
 
 ## 파이프라인 내 위치
 ```
-Vertical AI Agent (apt-legal-agent)
+사용자 질의
+     ↓
+apt-legal-agent  (Vertical AI Agent, minyoung-mah 기반)
        ↓ MCP
    ┌───┴────────────────────────┐
    ↓                            ↓
 kor-legal-mcp              apt-domain-mcp  ← 본 리포
 ```
+
+- `apt-legal-agent`는 사용자 질의를 분해·라우팅·종합하는 상위 Vertical Agent. 멀티에이전트 오케스트레이션은 자체 개발 라이브러리 `minyoung-mah`(사용자가 AX Advanced 미니 프로젝트 `ax-coding-agent`에서 추출한 harness)를 사용.
+- 본 리포는 `complex_id` 기반 단지 도메인 지식 공급만 담당. 법령·판례 조회는 `kor-legal-mcp`의 책임이며 본 서버는 해당 데이터를 직접 쿼리하지 않는다.
+
+## 문서 허브
+
+3개 리포(`kor-legal-mcp`, `apt-domain-mcp`, `apt-legal-agent`)의 **cross-cutting 문서**(전체 아키텍처, 합성 단지 스펙, 로드맵 등)는 `apt-legal-agent` 리포의 `docs/`에서 관리한다. 본 리포는 구현·운영 문서(본 `AGENTS.md`, `sql/schema.sql` 등)만 유지.
+
+- 전체 아키텍처: [apt-legal-agent/docs/01_architecture.md](https://github.com/youngs75/apt-legal-agent/blob/main/docs/01_architecture.md)
+- 파일럿 단지 스펙 (한빛마을 새솔아파트): [apt-legal-agent/docs/02_synthetic_complex_spec.md](https://github.com/youngs75/apt-legal-agent/blob/main/docs/02_synthetic_complex_spec.md)
+- Phase별 로드맵: [apt-legal-agent/docs/03_roadmap.md](https://github.com/youngs75/apt-legal-agent/blob/main/docs/03_roadmap.md)
 
 ## 설계 원칙
 - **멀티테넌트 단일 서버**: 단지당 서버를 띄우지 않고, 한 서버 인스턴스가 여러 단지를 서빙한다. `complex_id`(내부 ULID 또는 K-apt `kaptCode`)는 모든 tool 호출과 모든 테이블의 1급 키다.
@@ -45,10 +58,9 @@ apt-domain-mcp/
 │   └── meetings/                    # 회의록 합성본 (Phase 1)
 ├── scripts/
 │   └── md_to_pdf.py                 # 마크다운 → PDF (reportlab)
-├── docs/
-│   ├── 01_architecture.md
-│   └── 02_synthetic_complex_spec.md
 └── tests/
+
+# cross-cutting 문서(아키텍처/로드맵/합성단지 스펙)는 apt-legal-agent/docs/ 로 이관됨
 ```
 
 ## 커뮤니케이션 규칙
@@ -86,7 +98,7 @@ kor-legal-mcp `AGENTS.md`와 동일.
 | `get_wiki_page` | 토픽 위키 페이지 조회 |
 | `list_complexes` | 서버가 서빙 중인 단지 목록 (운영용) |
 
-세부 IO 스키마는 `docs/01_architecture.md` 참조.
+세부 IO 스키마는 `apt-legal-agent/docs/01_architecture.md` 참조.
 
 ## 환경 변수 (예정)
 ```bash

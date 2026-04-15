@@ -77,6 +77,7 @@ def parse_regulation_diff(path: Path) -> ParsedRegulationDiff:
                     old_body=cur_entry.get("old_body"),
                     new_body=cur_entry.get("new_body"),
                     reason=cur_entry.get("reason"),
+                    title=cur_entry.get("title"),
                 )
             )
         cur_entry = None
@@ -192,7 +193,7 @@ def apply_diff_to_articles(
                 article_seq=_seq_from_number(entry.article_number),
                 chapter_number=None,
                 chapter_title=None,
-                title="(신설)",
+                title=f"({entry.title})" if entry.title else "(신설)",
                 body=entry.new_body or "",
             )
         elif entry.change_type == "removed":

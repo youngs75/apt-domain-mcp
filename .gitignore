@@ -17,7 +17,6 @@ build/
 *.sqlite
 data/
 .claude/
-.ai/sessions/
 
 # Synthetic output (regenerable from markdown)
 synthetic/*.pdf
