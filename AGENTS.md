@@ -114,6 +114,7 @@ LITELLM_BASE_URL=...                    # 포털 주입 (또는 LITELLM_PROXY_UR
 LITELLM_API_KEY=...                     # 포털 주입 (또는 LITELLM_MASTER_KEY)
 LITELLM_MODEL=us.anthropic.claude-sonnet-4-6   # Default, AWS Bedrock Claude Sonnet 4.6
 LITELLM_USE_JSON_MODE=0                        # Default OFF. Bedrock Claude는 response_format json_object 파라미터가 빈 {}만 반환하는 이슈가 있어 기본 OFF. fence 제거 파서로 정상 처리.
+LITELLM_TIMEOUT=120                            # Default 120s. Wiki 생성은 프롬프트가 길어 30s로는 부족. 타임아웃 시 1회 재시도(timeout 300s).
 ```
 
 ## 구현 시 유의사항
