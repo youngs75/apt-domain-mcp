@@ -99,7 +99,13 @@ def chat_json(system: str, user: str, *, max_tokens: int = 512) -> dict[str, Any
     if client is None:
         return None
 
-    use_response_format = os.getenv("LITELLM_USE_JSON_MODE", "1") != "0"
+    # LiteLLM proxy 경유 Bedrock Claude Sonnet 4.6는 response_format={"type":"json_object"}를
+    # 전달받으면 choices[0].message.content를 빈 "{}"로만 반환하는 이슈가 있다.
+    # 따라서 기본값은 OFF. 모델이 ```json ... ``` fence로 감싼 JSON을 돌려주더라도
+    # 본 함수의 파서가 fence를 제거하므로 문제없다.
+    # 다른 provider(예: OpenAI direct)에서 strict JSON mode가 필요한 경우
+    # LITELLM_USE_JSON_MODE=1을 명시 설정.
+    use_response_format = os.getenv("LITELLM_USE_JSON_MODE", "0") == "1"
     kwargs: dict[str, Any] = {
         "model": get_model(),
         "messages": [
