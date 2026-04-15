@@ -46,7 +46,7 @@ class LLMConfig:
             base_url=_first_env("LITELLM_BASE_URL", "LITELLM_PROXY_URL", "OPENAI_BASE_URL"),
             api_key=_first_env("LITELLM_API_KEY", "LITELLM_MASTER_KEY", "OPENAI_API_KEY"),
             model=_first_env("LITELLM_MODEL") or DEFAULT_MODEL,
-            timeout=float(os.getenv("LITELLM_TIMEOUT", "30")),
+            timeout=float(os.getenv("LITELLM_TIMEOUT", "120")),
         )
 
     def is_available(self) -> bool:
@@ -149,24 +149,50 @@ def chat_json(system: str, user: str, *, max_tokens: int = 512) -> dict[str, Any
         return None
 
 
+def _is_timeout_error(e: Exception) -> bool:
+    return type(e).__name__ in ("APITimeoutError", "Timeout", "ReadTimeout")
+
+
 def chat_text(system: str, user: str, *, max_tokens: int = 4096) -> str | None:
     """Plain text chat helper for non-JSON output (e.g., wiki generation).
+    Retries once on timeout with an extended per-call deadline.
     Returns stripped content, or None on any failure."""
     client = get_client()
     if client is None:
         return None
-    try:
-        resp = client.chat.completions.create(
+
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+    def _call(use_client):
+        return use_client.chat.completions.create(
             model=get_model(),
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
+            messages=messages,
             temperature=0.2,
             max_tokens=max_tokens,
         )
-        content = resp.choices[0].message.content or ""
+
+    try:
+        resp = _call(client)
     except Exception as e:  # noqa: BLE001
-        log.warning("LLM chat_text failed type=%s msg=%s", type(e).__name__, str(e)[:300])
-        return None
+        if _is_timeout_error(e):
+            log.info("LLM chat_text timed out, retrying once with extended timeout")
+            try:
+                resp = _call(client.with_options(timeout=300.0))
+            except Exception as e2:  # noqa: BLE001
+                log.warning(
+                    "LLM chat_text retry failed type=%s msg=%s",
+                    type(e2).__name__,
+                    str(e2)[:300],
+                )
+                return None
+        else:
+            log.warning(
+                "LLM chat_text failed type=%s msg=%s", type(e).__name__, str(e)[:300]
+            )
+            return None
+
+    content = resp.choices[0].message.content or ""
     return content.strip() or None
