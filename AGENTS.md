@@ -108,6 +108,11 @@ MILVUS_COLLECTION=apt_meeting_chunks
 SERVER_PORT=8002
 WIKI_LLM_MODEL=claude-sonnet-4-6
 WIKI_LLM_API_KEY=...
+
+# LiteLLM proxy (포털 내부 기본 제공, 인제스트 타임 태거가 사용)
+LITELLM_BASE_URL=...                    # 포털 주입 (또는 LITELLM_PROXY_URL)
+LITELLM_API_KEY=...                     # 포털 주입 (또는 LITELLM_MASTER_KEY)
+LITELLM_MODEL=us.anthropic.claude-sonnet-4-6   # Default, AWS Bedrock Claude Sonnet 4.6
 ```
 
 ## 구현 시 유의사항
