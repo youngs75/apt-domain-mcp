@@ -31,7 +31,7 @@ from .repository import (
     upsert_meeting,
     upsert_regulation_diff,
 )
-from .tagging import tag_article, tag_decision
+from .tagging import get_llm_stats, reset_llm_stats, tag_article, tag_decision
 
 SYNTHETIC_COMPLEX_ID = "01HXXSOL0000000000000000AA"
 
@@ -199,7 +199,10 @@ async def main() -> int:
         print("ERROR: DATABASE_URL not set", file=sys.stderr)
         return 1
 
+    from . import tagging as _tagging_mod
+    print(f"Loaded tagging module from: {_tagging_mod.__file__}")
     print(f"Connecting to {url.split('@')[-1]} ...")
+    reset_llm_stats()
     conn = await asyncpg.connect(url)
     try:
         async with conn.transaction():
@@ -207,6 +210,8 @@ async def main() -> int:
             await seed(conn, repo_root)
     finally:
         await conn.close()
+    ok, fail = get_llm_stats()
+    print(f"Tagger stats: llm_ok={ok} llm_fail={fail} (fail = keyword fallback)")
     print("Seed complete.")
     return 0
 

@@ -37,49 +37,21 @@ ALLOWED_CATEGORIES = [
     "기타",
 ]
 
-# -- keyword fallback ---------------------------------------------------------
-
-CATEGORY_RULES: dict[str, list[str]] = {
-    "총칙": ["목적", "적용범위", "용어의 정의", "기본이념"],
-    "입주자": ["입주자등", "입주자의 권리", "입주자의 의무"],
-    "대표회의": [
-        "입주자대표회의",
-        "동별 대표자",
-        "회장",
-        "부회장",
-        "이사",
-        "임원의 임기",
-        "대표회의의 소집",
-        "의결정족수",
-    ],
-    "관리주체": ["관리주체", "관리사무소장", "위탁관리", "관리직원", "관리규정의 비치"],
-    "관리비": ["관리비", "사용료", "부과기준", "납부", "연체료", "예비비", "관리비의 공개"],
-    "회계": ["회계연도", "예산", "결산", "감사", "외부회계감사"],
-    "장기수선": ["장기수선", "장기수선충당금", "장충금", "수선유지비"],
-    "시설": ["시설관리", "부대시설", "승강기", "옥상", "방수", "조명", "LED"],
-    "주차": ["주차장", "방문차량", "주차"],
-    "공동시설": ["주민공동시설", "어린이집", "놀이터", "커뮤니티"],
-    "층간소음": ["층간소음"],
-    "반려동물": ["반려동물", "애완동물", "개", "고양이"],
-    "흡연": ["흡연", "금연"],
-    "공사": ["공사", "입찰", "공고", "수의계약", "제한경쟁입찰"],
-    "선거": ["선거관리위원회", "선거", "선출"],
-    "분쟁": ["분쟁", "조정", "중재"],
-    "보안": ["CCTV", "경비", "보안"],
-}
-
 ARTICLE_REF_RE = re.compile(r"제(\d+)조(?:의(\d+))?(?:제(\d+)항)?(?:제(\d+)호)?")
 LAW_REF_RE = re.compile(r"(공동주택관리법|주택법|민법)(?:\s*시행령)?(?:\s*시행규칙)?(?:\s*제\d+조(?:의\d+)?)?")
 
 
 def categorize_keyword(text: str, extra_hint: str = "") -> list[str]:
+    """CATEGORY_TRIGGERS를 단일 진실원으로 사용하는 키워드 기반 분류.
+    과거 CATEGORY_RULES의 '개'/'고양이' 같은 단문자 룰은 '15개 동' 같은 무관한
+    구문에 매치되어 오염을 일으켰기 때문에 제거됨."""
     haystack = f"{extra_hint}\n{text}"
     out: list[str] = []
-    for cat, kws in CATEGORY_RULES.items():
-        for kw in kws:
-            if kw in haystack:
-                out.append(cat)
-                break
+    for cat, kws in CATEGORY_TRIGGERS.items():
+        if not kws:  # "기타"는 키워드 기반에서는 선택되지 않음
+            continue
+        if any(kw in haystack for kw in kws):
+            out.append(cat)
     return out
 
 
@@ -291,6 +263,7 @@ def _llm_tag_decision_cached(topic: str, decision_text: str) -> tuple | None:
 
 def tag_article(article) -> None:
     """Mutate a ParsedArticle with derived metadata in-place."""
+    global _llm_ok_count, _llm_fail_count
     # reference extraction is always regex-based (cheap, deterministic)
     article.referenced_articles = extract_referenced_articles(
         article.body, self_number=article.article_number
@@ -306,10 +279,10 @@ def tag_article(article) -> None:
         )
 
     if llm_result is not None:
+        _llm_ok_count += 1
         cats, tags, refs, laws = llm_result
         article.category = list(cats)
         article.tags = list(tags)
-        # LLM 결과가 더 풍부하면 병합 (regex에서 놓친 참조 흡수)
         for r in refs:
             if r not in article.referenced_articles and r != article.article_number:
                 article.referenced_articles.append(r)
@@ -318,13 +291,17 @@ def tag_article(article) -> None:
                 article.referenced_laws.append(l)
         return
 
-    # fallback: keyword rules
+    # fallback: keyword rules + trigger gate
+    _llm_fail_count += 1
     hint = f"{article.title} {article.chapter_title or ''}"
-    article.category = categorize_keyword(article.body, extra_hint=hint)
+    haystack = f"{article.title}\n{article.body}"
+    cats = categorize_keyword(article.body, extra_hint=hint)
+    article.category = _apply_trigger_gate(cats, haystack)[:3] or ["기타"]
     article.tags = []
 
 
 def tag_decision(decision) -> None:
+    global _llm_ok_count, _llm_fail_count
     llm_result = None
     if get_client() is not None:
         llm_result = _llm_tag_decision_cached(
@@ -333,10 +310,29 @@ def tag_decision(decision) -> None:
         )
 
     if llm_result is not None:
+        _llm_ok_count += 1
         cats, tags = llm_result
         decision.category = list(cats)
-        # ParsedDecision 현재 스키마에 tags 필드는 없음 — 확장 시 주석 해제
-        # decision.tags = list(tags)
         return
 
-    decision.category = categorize_keyword(decision.decision, extra_hint=decision.topic)
+    _llm_fail_count += 1
+    haystack = f"{decision.topic}\n{decision.decision}"
+    cats = categorize_keyword(decision.decision, extra_hint=decision.topic)
+    decision.category = _apply_trigger_gate(cats, haystack)[:3] or ["기타"]
+
+
+# -- diagnostic counters -----------------------------------------------------
+
+_llm_ok_count = 0
+_llm_fail_count = 0
+
+
+def get_llm_stats() -> tuple[int, int]:
+    """Return (ok, fail) counts since process start. For seed diagnostics."""
+    return _llm_ok_count, _llm_fail_count
+
+
+def reset_llm_stats() -> None:
+    global _llm_ok_count, _llm_fail_count
+    _llm_ok_count = 0
+    _llm_fail_count = 0

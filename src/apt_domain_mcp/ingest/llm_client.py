@@ -88,37 +88,56 @@ def get_model() -> str:
     return LLMConfig.from_env().model
 
 
+_diag_first_content_printed = False
+
+
 def chat_json(system: str, user: str, *, max_tokens: int = 512) -> dict[str, Any] | None:
     """Call the chat endpoint and return parsed JSON, or None on any failure.
     The system prompt must instruct the model to return strict JSON only."""
+    global _diag_first_content_printed
     client = get_client()
     if client is None:
         return None
+
+    use_response_format = os.getenv("LITELLM_USE_JSON_MODE", "1") != "0"
+    kwargs: dict[str, Any] = {
+        "model": get_model(),
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "temperature": 0.0,
+        "max_tokens": max_tokens,
+    }
+    if use_response_format:
+        kwargs["response_format"] = {"type": "json_object"}
+
     try:
-        resp = client.chat.completions.create(
-            model=get_model(),
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=0.0,
-            max_tokens=max_tokens,
-            response_format={"type": "json_object"},
-        )
+        resp = client.chat.completions.create(**kwargs)
         content = resp.choices[0].message.content or ""
     except Exception as e:  # noqa: BLE001
-        log.warning("LLM call failed: %s — falling back", e)
+        # Log with error class so we can tell 400 (unsupported param) vs 429 vs 5xx
+        log.warning("LLM call failed type=%s msg=%s", type(e).__name__, str(e)[:300])
         return None
+
+    # Print first raw content for diagnostics
+    if not _diag_first_content_printed:
+        _diag_first_content_printed = True
+        print(f"[llm_client] first raw content ({len(content)} chars): {content[:500]!r}")
 
     content = content.strip()
     if content.startswith("```"):
-        # strip ```json ... ```
         content = content.strip("`")
         if content.startswith("json"):
             content = content[4:]
         content = content.strip()
+    # Tolerate extra trailing text after JSON object: find first '{' ... matching '}'
+    if content and content[0] != "{":
+        start = content.find("{")
+        if start >= 0:
+            content = content[start:]
     try:
         return json.loads(content)
     except json.JSONDecodeError as e:
-        log.warning("LLM returned non-JSON content: %s (err=%s)", content[:200], e)
+        log.warning("LLM returned non-JSON content (err=%s): %s", e, content[:300])
         return None
