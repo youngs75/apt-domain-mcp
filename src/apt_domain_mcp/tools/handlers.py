@@ -147,7 +147,7 @@ async def get_complex_info(complex_id: str) -> dict[str, Any]:
 # --------------------------------------------------------------------------
 async def search_regulation(
     complex_id: str,
-    query: str,
+    query: str | None = None,
     *,
     category: str | None = None,
     version: int | None = None,
@@ -155,10 +155,11 @@ async def search_regulation(
 ) -> dict[str, Any]:
     if (e := _require_complex_id(complex_id)):
         return e
-    if not query or not query.strip():
-        return _err("INVALID_PARAMS", "query는 필수입니다.")
     if db.get_pool() is None:
         return _err("DB_NOT_CONFIGURED", "서버에 DATABASE_URL이 설정되지 않았습니다.")
+    query = (query or "").strip() or None
+    if not query and not category:
+        return _err("INVALID_PARAMS", "query 또는 category 중 최소 하나는 필요합니다.")
     limit = max(1, min(int(limit or 10), 50))
 
     async with db.acquire() as conn:
@@ -182,12 +183,14 @@ async def search_regulation(
                    title, body, category, referenced_articles, referenced_laws
             FROM regulation_article
             WHERE complex_id = $1 AND version = $2
-              AND (body ILIKE '%' || $3 || '%' OR title ILIKE '%' || $3 || '%')
         """
-        params: list = [complex_id, version, query]
+        params: list = [complex_id, version]
+        if query:
+            params.append(query)
+            sql += f" AND (body ILIKE '%' || ${len(params)} || '%' OR title ILIKE '%' || ${len(params)} || '%')"
         if category:
-            sql += " AND $4 = ANY(category)"
             params.append(category)
+            sql += f" AND ${len(params)} = ANY(category)"
         sql += " ORDER BY article_seq LIMIT " + str(limit)
         rows = await conn.fetch(sql, *params)
 
