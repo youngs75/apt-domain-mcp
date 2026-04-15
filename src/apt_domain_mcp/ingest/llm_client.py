@@ -147,3 +147,26 @@ def chat_json(system: str, user: str, *, max_tokens: int = 512) -> dict[str, Any
     except json.JSONDecodeError as e:
         log.warning("LLM returned non-JSON content (err=%s): %s", e, content[:300])
         return None
+
+
+def chat_text(system: str, user: str, *, max_tokens: int = 4096) -> str | None:
+    """Plain text chat helper for non-JSON output (e.g., wiki generation).
+    Returns stripped content, or None on any failure."""
+    client = get_client()
+    if client is None:
+        return None
+    try:
+        resp = client.chat.completions.create(
+            model=get_model(),
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=0.2,
+            max_tokens=max_tokens,
+        )
+        content = resp.choices[0].message.content or ""
+    except Exception as e:  # noqa: BLE001
+        log.warning("LLM chat_text failed type=%s msg=%s", type(e).__name__, str(e)[:300])
+        return None
+    return content.strip() or None
