@@ -99,7 +99,13 @@ def chat_json(system: str, user: str, *, max_tokens: int = 512) -> dict[str, Any
     if client is None:
         return None
 
-    use_response_format = os.getenv("LITELLM_USE_JSON_MODE", "1") != "0"
+    # LiteLLM proxy 경유 Bedrock Claude Sonnet 4.6는 response_format={"type":"json_object"}를
+    # 전달받으면 choices[0].message.content를 빈 "{}"로만 반환하는 이슈가 있다.
+    # 따라서 기본값은 OFF. 모델이 ```json ... ``` fence로 감싼 JSON을 돌려주더라도
+    # 본 함수의 파서가 fence를 제거하므로 문제없다.
+    # 다른 provider(예: OpenAI direct)에서 strict JSON mode가 필요한 경우
+    # LITELLM_USE_JSON_MODE=1을 명시 설정.
+    use_response_format = os.getenv("LITELLM_USE_JSON_MODE", "0") == "1"
     kwargs: dict[str, Any] = {
         "model": get_model(),
         "messages": [
@@ -141,3 +147,26 @@ def chat_json(system: str, user: str, *, max_tokens: int = 512) -> dict[str, Any
     except json.JSONDecodeError as e:
         log.warning("LLM returned non-JSON content (err=%s): %s", e, content[:300])
         return None
+
+
+def chat_text(system: str, user: str, *, max_tokens: int = 4096) -> str | None:
+    """Plain text chat helper for non-JSON output (e.g., wiki generation).
+    Returns stripped content, or None on any failure."""
+    client = get_client()
+    if client is None:
+        return None
+    try:
+        resp = client.chat.completions.create(
+            model=get_model(),
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            temperature=0.2,
+            max_tokens=max_tokens,
+        )
+        content = resp.choices[0].message.content or ""
+    except Exception as e:  # noqa: BLE001
+        log.warning("LLM chat_text failed type=%s msg=%s", type(e).__name__, str(e)[:300])
+        return None
+    return content.strip() or None

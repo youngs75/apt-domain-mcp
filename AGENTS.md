@@ -113,6 +113,7 @@ WIKI_LLM_API_KEY=...
 LITELLM_BASE_URL=...                    # 포털 주입 (또는 LITELLM_PROXY_URL)
 LITELLM_API_KEY=...                     # 포털 주입 (또는 LITELLM_MASTER_KEY)
 LITELLM_MODEL=us.anthropic.claude-sonnet-4-6   # Default, AWS Bedrock Claude Sonnet 4.6
+LITELLM_USE_JSON_MODE=0                        # Default OFF. Bedrock Claude는 response_format json_object 파라미터가 빈 {}만 반환하는 이슈가 있어 기본 OFF. fence 제거 파서로 정상 처리.
 ```
 
 ## 구현 시 유의사항
