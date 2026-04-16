@@ -68,6 +68,18 @@ apt-domain-mcp/
 - 코드 주석은 영어 기본, 사용자 facing 메시지·tool 응답은 한국어.
 - MCP Tool 응답은 `ensure_ascii=False`.
 
+## Memory Sync
+
+사용자는 여러 머신(사내 VDI + 집 WSL2)에서 이 리포를 작업하므로, Claude의 장기 기억은 **별도 private GitHub repo**(`~/.claude/global-memory/`, GitHub: `youngs75/claude-global-memory`)로 동기화됩니다. 마스터 규칙은 `~/.claude/CLAUDE.md`에 있습니다.
+
+- **본 프로젝트가 참조할 글로벌 메모리 파일:**
+  - `~/.claude/global-memory/apt-family.md` — 3-repo 구조·문서 허브·합성 데이터 원칙
+  - `~/.claude/global-memory/portal-infra.md` — VDI egress 제한, 포털 수동 배포, endpoint 등록, LiteLLM Bedrock `json_object` 미지원, Web IDE 위임 패턴
+- **세션 시작 시:** 위 파일들을 읽고(필요 시 `cd ~/.claude/global-memory && git pull --rebase -q` 선행) 적용
+- **장기 기억 승격:** 프로젝트 로컬 auto memory(`~/.claude/projects/.../memory/`)는 scratch로만 사용. 다른 머신에서도 필요한 것, 프로젝트 철학·방향·경계, 여러 세션 재사용 교훈은 즉시 위 파일들 중 맞는 곳으로 승격
+- **세션 종료 또는 `sync memory` 지시 시:** `cd ~/.claude/global-memory && git add -A && git commit -m "..." && git push`
+- **금지:** 프로젝트 로컬 auto memory에만 중요한 장기 기억을 남기지 말 것 — 다른 머신에서 유실됩니다
+
 ## 세션 파일 명명 규칙
 `.ai/sessions/session-YYYY-MM-DD-NNNN.md` 형식. kor-legal-mcp와 동일 규칙.
 
