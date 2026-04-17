@@ -21,6 +21,8 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
 from apt_domain_mcp import __version__, db
+from apt_domain_mcp.admin.auth import AdminAuthMiddleware
+from apt_domain_mcp.admin.routes import admin_routes
 from apt_domain_mcp.tools import handlers as h
 
 logger = logging.getLogger(__name__)
@@ -247,10 +249,13 @@ async def _lifespan(app: Starlette):
             await db.close_pool()
 
 
+_admin_app = Starlette(routes=admin_routes)
+
 app = Starlette(
     routes=[
         Route("/", _root),
         Route("/healthz", _healthz),
+        Mount("/admin", app=AdminAuthMiddleware(_admin_app)),
         Mount("/", app=_INNER_MCP_APP),
     ],
     lifespan=_lifespan,
