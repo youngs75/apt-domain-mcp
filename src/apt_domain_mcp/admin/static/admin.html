@@ -4,65 +4,277 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>apt-domain-mcp Admin</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
   :root {
-    --primary: #2563eb;
-    --bg: #f8fafc;
-    --surface: #ffffff;
-    --text: #1e293b;
-    --text-secondary: #64748b;
-    --border: #e2e8f0;
-    --radius: 8px;
+    --primary: #2563eb; --primary-hover: #1d4ed8;
+    --bg: #f8fafc; --surface: #fff; --text: #1e293b;
+    --text-secondary: #64748b; --border: #e2e8f0;
+    --success: #22c55e; --error: #ef4444; --radius: 8px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
-  .header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 0.75rem 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
   .header h1 { font-size: 1rem; }
-  .header button {
-    padding: 0.375rem 0.75rem;
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    cursor: pointer;
-    font-size: 0.8125rem;
-    color: var(--text-secondary);
-  }
-  .content { padding: 1.5rem; max-width: 960px; margin: 0 auto; }
-  .placeholder {
-    text-align: center;
-    padding: 3rem;
-    color: var(--text-secondary);
-  }
+  .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .btn { padding: 0.375rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font-size: 0.8125rem; background: var(--surface); color: var(--text-secondary); }
+  .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .content { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; }
+  .card h2 { font-size: 0.9375rem; margin-bottom: 0.75rem; }
+  .card h3 { font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--text-secondary); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+  th { font-weight: 600; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; }
+  tr:hover td { background: #f1f5f9; }
+  tr.clickable { cursor: pointer; }
+  .badge { display: inline-block; padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .back-link { font-size: 0.8125rem; color: var(--primary); cursor: pointer; margin-bottom: 1rem; display: inline-block; }
+  .upload-area { border: 2px dashed var(--border); border-radius: var(--radius); padding: 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem; transition: border-color 0.2s; }
+  .upload-area.dragover { border-color: var(--primary); background: #eff6ff; }
+  .form-group { margin-bottom: 0.75rem; }
+  .form-group label { display: block; font-size: 0.8125rem; font-weight: 500; margin-bottom: 0.25rem; }
+  .form-group select, .form-group input { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.8125rem; }
+  .alert { padding: 0.75rem 1rem; border-radius: var(--radius); font-size: 0.8125rem; margin-bottom: 1rem; }
+  .alert-success { background: #dcfce7; color: #166534; }
+  .alert-error { background: #fee2e2; color: #991b1b; }
+  .empty { text-align: center; padding: 2rem; color: var(--text-secondary); font-size: 0.875rem; }
 </style>
 </head>
 <body>
-<div class="header">
-  <h1>apt-domain-mcp Admin</h1>
-  <button onclick="logout()">Logout</button>
-</div>
-<div id="app" class="content">
-  <div class="placeholder">
-    <p>Admin dashboard (under construction)</p>
-    <p style="margin-top:0.5rem;font-size:0.875rem">Step 2 will add complex list, document upload, and data management.</p>
+<div id="app">
+  <div class="header">
+    <h1>apt-domain-mcp Admin</h1>
+    <div class="header-actions">
+      <span style="font-size:0.75rem;color:var(--text-secondary)">{{ complexes.length }} complexes</span>
+      <button class="btn" @click="logout">Logout</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Alert -->
+    <div v-if="alert" :class="'alert alert-' + alert.type">{{ alert.message }}</div>
+
+    <!-- Complex List -->
+    <template v-if="!selectedComplex">
+      <div class="card">
+        <h2>Complexes</h2>
+        <table v-if="complexes.length">
+          <thead><tr><th>Name</th><th>Address</th><th>Units</th><th>Type</th></tr></thead>
+          <tbody>
+            <tr v-for="c in complexes" :key="c.complex_id" class="clickable" @click="selectComplex(c)">
+              <td><strong>{{ c.name }}</strong></td>
+              <td>{{ c.address }}</td>
+              <td>{{ c.units }}</td>
+              <td>{{ c.management_type }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-else class="empty">No complexes registered.</div>
+      </div>
+    </template>
+
+    <!-- Complex Detail -->
+    <template v-else>
+      <span class="back-link" @click="selectedComplex = null">&larr; Back to list</span>
+      <div class="card">
+        <h2>{{ selectedComplex.name }}</h2>
+        <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:0.5rem">{{ selectedComplex.address }} | {{ selectedComplex.units }} units | {{ selectedComplex.management_type }}</p>
+        <p style="font-size:0.75rem;color:var(--text-secondary)">ID: {{ selectedComplex.complex_id }}</p>
+      </div>
+
+      <!-- Upload -->
+      <div class="card">
+        <h2>Upload Document</h2>
+        <div class="upload-area"
+             :class="{ dragover }"
+             @dragover.prevent="dragover = true"
+             @dragleave="dragover = false"
+             @drop.prevent="onDrop">
+          <template v-if="!uploadFile">
+            Drag & drop a .md file here, or
+            <label style="color:var(--primary);cursor:pointer;text-decoration:underline">
+              browse
+              <input type="file" accept=".md,.txt" @change="onFileSelect" style="display:none" />
+            </label>
+          </template>
+          <template v-else>
+            {{ uploadFile.name }} ({{ (uploadFile.size / 1024).toFixed(1) }} KB)
+            <button class="btn" style="margin-left:0.5rem" @click="uploadFile = null">Clear</button>
+          </template>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:end">
+          <div class="form-group" style="flex:1">
+            <label>Kind</label>
+            <select v-model="uploadKind">
+              <option value="regulation">regulation</option>
+              <option value="regulation-diff">regulation-diff</option>
+              <option value="meeting">meeting</option>
+            </select>
+          </div>
+          <div class="form-group" v-if="uploadKind === 'regulation'">
+            <label><input type="checkbox" v-model="uploadMakeCurrent" /> Make current</label>
+          </div>
+          <button class="btn btn-primary" :disabled="!uploadFile || uploading" @click="doUpload">
+            {{ uploading ? 'Uploading...' : 'Upload' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Regulations -->
+      <div class="card">
+        <h3>Regulations</h3>
+        <table v-if="regulations.length">
+          <thead><tr><th>Version</th><th>Effective Date</th><th>Articles</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr v-for="r in regulations" :key="r.version">
+              <td>v{{ r.version }}</td>
+              <td>{{ r.effective_date }}</td>
+              <td>{{ r.article_count }}</td>
+              <td><span v-if="r.is_current" class="badge badge-green">current</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-else class="empty">No regulations.</div>
+      </div>
+
+      <!-- Meetings -->
+      <div class="card">
+        <h3>Meetings</h3>
+        <table v-if="meetings.length">
+          <thead><tr><th>Date</th><th>Type</th><th>Decisions</th></tr></thead>
+          <tbody>
+            <tr v-for="m in meetings" :key="m.meeting_id">
+              <td>{{ m.meeting_date }}</td>
+              <td>{{ m.meeting_type }}</td>
+              <td>{{ m.decision_count }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-else class="empty">No meetings.</div>
+      </div>
+
+      <!-- Documents -->
+      <div class="card">
+        <h3>Documents</h3>
+        <table v-if="documents.length">
+          <thead><tr><th>Title</th><th>Kind</th><th>Created</th></tr></thead>
+          <tbody>
+            <tr v-for="d in documents" :key="d.document_id">
+              <td>{{ d.title }}</td>
+              <td><span class="badge badge-blue">{{ d.kind }}</span></td>
+              <td>{{ d.created_at?.substring(0, 10) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-else class="empty">No documents.</div>
+      </div>
+    </template>
   </div>
 </div>
+
 <script>
-  async function logout() {
-    await fetch('/admin/logout', { method: 'POST' });
-    window.location.href = '/admin/login';
-  }
+const { createApp, ref, onMounted, watch } = Vue;
+
+createApp({
+  setup() {
+    const complexes = ref([]);
+    const selectedComplex = ref(null);
+    const regulations = ref([]);
+    const meetings = ref([]);
+    const documents = ref([]);
+    const alert = ref(null);
+    const uploadFile = ref(null);
+    const uploadKind = ref('regulation');
+    const uploadMakeCurrent = ref(false);
+    const uploading = ref(false);
+    const dragover = ref(false);
+
+    const showAlert = (type, message) => {
+      alert.value = { type, message };
+      setTimeout(() => { alert.value = null; }, 5000);
+    };
+
+    const api = async (path, opts) => {
+      const res = await fetch('/admin' + path, opts);
+      if (res.status === 401 || res.status === 302) {
+        window.location.href = '/admin/login';
+        return null;
+      }
+      return res.json();
+    };
+
+    const loadComplexes = async () => {
+      const data = await api('/api/complexes');
+      if (data) complexes.value = data.complexes || [];
+    };
+
+    const loadComplexDetail = async (id) => {
+      const [regs, mtgs, docs] = await Promise.all([
+        api(`/api/complexes/${id}/regulations`),
+        api(`/api/complexes/${id}/meetings`),
+        api(`/api/complexes/${id}/documents`),
+      ]);
+      regulations.value = regs?.versions || [];
+      meetings.value = mtgs?.meetings || [];
+      documents.value = docs?.documents || [];
+    };
+
+    const selectComplex = (c) => {
+      selectedComplex.value = c;
+      loadComplexDetail(c.complex_id);
+    };
+
+    const onFileSelect = (e) => { uploadFile.value = e.target.files[0]; };
+    const onDrop = (e) => {
+      dragover.value = false;
+      const f = e.dataTransfer.files[0];
+      if (f) uploadFile.value = f;
+    };
+
+    const doUpload = async () => {
+      if (!uploadFile.value || !selectedComplex.value) return;
+      uploading.value = true;
+      try {
+        const fd = new FormData();
+        fd.append('file', uploadFile.value);
+        fd.append('kind', uploadKind.value);
+        fd.append('make_current', uploadMakeCurrent.value ? 'true' : 'false');
+        const data = await api(`/api/complexes/${selectedComplex.value.complex_id}/ingest`, {
+          method: 'POST', body: fd,
+        });
+        if (data?.ok) {
+          showAlert('success', `${data.message} (${data.count} items)`);
+          uploadFile.value = null;
+          loadComplexDetail(selectedComplex.value.complex_id);
+        } else {
+          showAlert('error', data?.message || 'Upload failed');
+        }
+      } catch (ex) {
+        showAlert('error', `Error: ${ex.message}`);
+      } finally {
+        uploading.value = false;
+      }
+    };
+
+    const logout = async () => {
+      await fetch('/admin/logout', { method: 'POST' });
+      window.location.href = '/admin/login';
+    };
+
+    onMounted(loadComplexes);
+
+    return {
+      complexes, selectedComplex, regulations, meetings, documents,
+      alert, uploadFile, uploadKind, uploadMakeCurrent, uploading, dragover,
+      selectComplex, onFileSelect, onDrop, doUpload, logout, showAlert,
+    };
+  },
+}).mount('#app');
 </script>
 </body>
 </html>
