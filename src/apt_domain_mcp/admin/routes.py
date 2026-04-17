@@ -7,7 +7,6 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, Response
 from starlette.routing import Route
 
-from .api import api_routes
 from .auth import handle_login, handle_logout
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -26,5 +25,5 @@ admin_routes: list[Route] = [
     Route("/login", handle_login, methods=["GET", "POST"]),
     Route("/logout", handle_logout, methods=["POST"]),
     Route("/", serve_admin_page),
-    *api_routes,
+    # API routes will be added in step 2
 ]
