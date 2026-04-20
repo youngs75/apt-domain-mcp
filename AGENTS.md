@@ -27,6 +27,23 @@ kor-legal-mcp              apt-domain-mcp  ← 본 리포
 - 파일럿 단지 스펙 (한빛마을 새솔아파트): [apt-legal-agent/docs/02_synthetic_complex_spec.md](https://github.com/youngs75/apt-legal-agent/blob/main/docs/02_synthetic_complex_spec.md)
 - Phase별 로드맵: [apt-legal-agent/docs/03_roadmap.md](https://github.com/youngs75/apt-legal-agent/blob/main/docs/03_roadmap.md)
 
+## 책임 경계
+- 본 서버는 단지 도메인 데이터(complex, regulation_*, meeting_*, document, wiki_page)의 **유일한 소유자**.
+- 외부 리포(apt-web 등)는 **MCP tool 경로** 또는 **admin REST API 경로**(`/admin/api/*`)로만 접근. asyncpg 직접 접근 금지.
+
+## Admin REST API 개요
+
+인증: `X-Admin-API-Key` 헤더 + env `ADMIN_API_KEY` (빈 문자열이면 전면 거부).
+
+| Method | Path | 설명 |
+|---|---|---|
+| GET | `/admin/api/complexes` | 단지 목록 |
+| POST | `/admin/api/complexes` | 단지 생성/upsert |
+| GET | `/admin/api/complexes/{id}/regulations` | 관리규약 버전 리스트 |
+| GET | `/admin/api/complexes/{id}/meetings` | 회의록 리스트 |
+| GET | `/admin/api/complexes/{id}/documents` | 문서 리스트 |
+| POST | `/admin/api/complexes/{id}/ingest` | 파일 업로드 + 인제스트 |
+
 ## 설계 원칙
 - **멀티테넌트 단일 서버**: 단지당 서버를 띄우지 않고, 한 서버 인스턴스가 여러 단지를 서빙한다. `complex_id`(내부 ULID 또는 K-apt `kaptCode`)는 모든 tool 호출과 모든 테이블의 1급 키다.
 - **저장소 3계층**:
@@ -100,7 +117,7 @@ kor-legal-mcp `AGENTS.md`와 동일.
 
 세부 IO 스키마는 `apt-legal-agent/docs/01_architecture.md` 참조.
 
-## 환경 변수 (예정)
+## 환경 변수
 ```bash
 DATABASE_URL=postgresql://...
 MILVUS_URI=http://milvus:19530          # Phase 1 후반 활성화
@@ -115,6 +132,9 @@ LITELLM_API_KEY=...                     # 포털 주입 (또는 LITELLM_MASTER_K
 LITELLM_MODEL=us.anthropic.claude-sonnet-4-6   # Default, AWS Bedrock Claude Sonnet 4.6
 LITELLM_USE_JSON_MODE=0                        # Default OFF. Bedrock Claude는 response_format json_object 파라미터가 빈 {}만 반환하는 이슈가 있어 기본 OFF. fence 제거 파서로 정상 처리.
 LITELLM_TIMEOUT=120                            # Default 120s. Wiki 생성은 프롬프트가 길어 30s로는 부족. 타임아웃 시 1회 재시도(timeout 300s).
+
+# Admin REST API (필수, 빈 문자열이면 admin 전면 거부)
+ADMIN_API_KEY=
 ```
 
 ## 구현 시 유의사항

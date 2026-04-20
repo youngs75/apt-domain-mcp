@@ -16,9 +16,13 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
+
+from apt_domain_mcp.admin.api import api_routes as _admin_api_routes
+from apt_domain_mcp.admin.auth import AdminApiKeyMiddleware
 
 from apt_domain_mcp import __version__, db
 from apt_domain_mcp.tools import handlers as h
@@ -225,6 +229,13 @@ async def _root(_request: Request) -> JSONResponse:
 _MCP = build_mcp()
 _INNER_MCP_APP = _MCP.streamable_http_app()
 
+_ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
+
+_admin_api_app = Starlette(
+    routes=_admin_api_routes,
+    middleware=[Middleware(AdminApiKeyMiddleware, api_key=_ADMIN_API_KEY)],
+)
+
 
 @asynccontextmanager
 async def _lifespan(app: Starlette):
@@ -251,6 +262,7 @@ app = Starlette(
     routes=[
         Route("/", _root),
         Route("/healthz", _healthz),
+        Mount("/admin/api", app=_admin_api_app),
         Mount("/", app=_INNER_MCP_APP),
     ],
     lifespan=_lifespan,
