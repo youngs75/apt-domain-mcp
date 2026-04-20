@@ -86,16 +86,33 @@ async def create_complex(request: Request) -> JSONResponse:
     except Exception:
         return _err("INVALID_JSON", "요청 본문이 유효한 JSON이 아닙니다.")
 
-    complex_id = body.get("complex_id")
     name = body.get("name")
-    if not complex_id or not name:
-        return _err("INVALID_PARAMS", "complex_id와 name은 필수입니다.")
+    address = body.get("address")
+    if not name or not address:
+        return _err("INVALID_PARAMS", "name과 address는 필수입니다.")
+
+    # complex_id auto-issue — server generates a ULID when omitted
+    from ..ingest.repository import new_ulid_like, upsert_complex
+    provided_id = body.get("complex_id")
+    if provided_id:
+        complex_id = provided_id
+        generated = False
+    else:
+        complex_id = new_ulid_like()
+        generated = True
+    body["complex_id"] = complex_id
 
     try:
         async with db.acquire() as conn:
-            from ..ingest.repository import upsert_complex
             await upsert_complex(conn, body)
-        return _json({"complex_id": complex_id, "status": "created"}, 201)
+        return _json(
+            {
+                "complex_id": complex_id,
+                "generated": generated,
+                "status": "created" if generated else "upserted",
+            },
+            201,
+        )
     except Exception:
         logger.exception("create_complex failed")
         return _err("INTERNAL_ERROR", "단지 생성 실패", 500)
