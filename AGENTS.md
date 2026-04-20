@@ -38,7 +38,7 @@ kor-legal-mcp              apt-domain-mcp  ← 본 리포
 | Method | Path | 설명 |
 |---|---|---|
 | GET | `/admin/api/complexes` | 단지 목록 |
-| POST | `/admin/api/complexes` | 단지 생성/upsert |
+| POST | `/admin/api/complexes` | 단지 생성/upsert. 필수: `name`, `address`. `complex_id` 선택 — 생략 시 서버가 ULID 자동 발급. 응답: `{"complex_id":"01HZZ...","generated":true,"status":"created"}` |
 | DELETE | `/admin/api/complexes/{id}` | 단지 하드 삭제 (confirm_name 필수) |
 | GET | `/admin/api/complexes/{id}/regulations` | 관리규약 버전 리스트 |
 | GET | `/admin/api/complexes/{id}/meetings` | 회의록 리스트 |
