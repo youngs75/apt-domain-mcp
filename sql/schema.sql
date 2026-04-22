@@ -102,8 +102,8 @@ CREATE TABLE IF NOT EXISTS regulation_revision (
     new_body        TEXT,                       -- modified/added
     reason          TEXT,                       -- 개정 사유
     PRIMARY KEY (complex_id, from_version, to_version, article_number),
-    FOREIGN KEY (complex_id, from_version) REFERENCES regulation_version(complex_id, version),
-    FOREIGN KEY (complex_id, to_version)   REFERENCES regulation_version(complex_id, version)
+    FOREIGN KEY (complex_id, from_version) REFERENCES regulation_version(complex_id, version) ON DELETE CASCADE,
+    FOREIGN KEY (complex_id, to_version)   REFERENCES regulation_version(complex_id, version) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_reg_revision_article

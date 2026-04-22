@@ -332,14 +332,11 @@ async def delete_complex(request: Request) -> JSONResponse:
                     409,
                 )
             async with conn.transaction():
-                # regulation_diff FK has no ON DELETE CASCADE, so its rows would
+                # regulation_revision FK has no ON DELETE CASCADE, so its rows
                 # block the cascade chain from complex → regulation_version.
                 # Clear them first, then let CASCADE handle the rest.
-                # regulation_diff 의 FK에는 ON DELETE CASCADE 가 빠져 있어
-                # complex → regulation_version CASCADE 체인을 막는다. 먼저 명시
-                # 삭제 후, 나머지는 CASCADE 로 자동 정리된다.
                 await conn.execute(
-                    "DELETE FROM regulation_diff WHERE complex_id = $1",
+                    "DELETE FROM regulation_revision WHERE complex_id = $1",
                     complex_id,
                 )
                 await conn.execute(
