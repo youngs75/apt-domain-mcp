@@ -287,6 +287,55 @@ async def ingest(request: Request) -> JSONResponse:
 
 
 # --------------------------------------------------------------------------
+# DELETE /complexes/{id}?confirm_name=<exact name>
+# 단지 하드 삭제 — confirm_name이 DB의 name과 완전 일치해야 실행.
+# --------------------------------------------------------------------------
+async def delete_complex(request: Request) -> JSONResponse:
+    complex_id = request.path_params["id"]
+    confirm_name = request.query_params.get("confirm_name", "")
+    if not confirm_name:
+        return _err(
+            "INVALID_PARAMS",
+            "confirm_name 쿼리 파라미터는 필수입니다. 삭제할 단지 이름을 정확히 전달하세요.",
+        )
+    if db.get_pool() is None:
+        return _err("DB_NOT_CONFIGURED", "DATABASE_URL이 설정되지 않았습니다.", 503)
+    try:
+        async with db.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT name FROM complex WHERE complex_id = $1",
+                complex_id,
+            )
+            if row is None:
+                return _err("COMPLEX_NOT_FOUND", f"등록되지 않은 단지: {complex_id}", 404)
+            if row["name"] != confirm_name:
+                return _err(
+                    "NAME_MISMATCH",
+                    f"confirm_name이 단지 이름과 일치하지 않습니다. DB 값: {row['name']!r}",
+                    409,
+                )
+            async with conn.transaction():
+                # regulation_diff FK has no ON DELETE CASCADE, so its rows would
+                # block the cascade chain from complex → regulation_version.
+                # Clear them first, then let CASCADE handle the rest.
+                # regulation_diff 의 FK에는 ON DELETE CASCADE 가 빠져 있어
+                # complex → regulation_version CASCADE 체인을 막는다. 먼저 명시
+                # 삭제 후, 나머지는 CASCADE 로 자동 정리된다.
+                await conn.execute(
+                    "DELETE FROM regulation_diff WHERE complex_id = $1",
+                    complex_id,
+                )
+                await conn.execute(
+                    "DELETE FROM complex WHERE complex_id = $1",
+                    complex_id,
+                )
+        return _json({"complex_id": complex_id, "status": "deleted"})
+    except Exception:
+        logger.exception("delete_complex failed for %s", complex_id)
+        return _err("INTERNAL_ERROR", "단지 삭제 실패", 500)
+
+
+# --------------------------------------------------------------------------
 # helpers
 # --------------------------------------------------------------------------
 async def _complex_exists(conn, complex_id: str) -> bool:
@@ -313,6 +362,7 @@ def _json_loads(v):
 api_routes: list[Route] = [
     Route("/complexes", list_complexes, methods=["GET"]),
     Route("/complexes", create_complex, methods=["POST"]),
+    Route("/complexes/{id}", delete_complex, methods=["DELETE"]),
     Route("/complexes/{id}/regulations", list_regulations, methods=["GET"]),
     Route("/complexes/{id}/meetings", list_meetings, methods=["GET"]),
     Route("/complexes/{id}/documents", list_documents, methods=["GET"]),

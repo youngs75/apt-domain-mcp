@@ -39,10 +39,25 @@ kor-legal-mcp              apt-domain-mcp  ← 본 리포
 |---|---|---|
 | GET | `/admin/api/complexes` | 단지 목록 |
 | POST | `/admin/api/complexes` | 단지 생성/upsert |
+| DELETE | `/admin/api/complexes/{id}` | 단지 하드 삭제 (confirm_name 필수) |
 | GET | `/admin/api/complexes/{id}/regulations` | 관리규약 버전 리스트 |
 | GET | `/admin/api/complexes/{id}/meetings` | 회의록 리스트 |
 | GET | `/admin/api/complexes/{id}/documents` | 문서 리스트 |
 | POST | `/admin/api/complexes/{id}/ingest` | 파일 업로드 + 인제스트 |
+
+### DELETE `/admin/api/complexes/{id}`
+
+단지를 **하드 삭제**한다. `regulation_version`, `regulation_article`, `regulation_diff`, `meeting`, `decision`, `document`, `wiki_page` 등 종속 데이터가 함께 제거된다.
+
+- Query: `confirm_name=<단지 이름 URL-encoded>` (필수, 안전장치)
+- 200 `{"complex_id": "...", "status": "deleted"}`
+- 400 `INVALID_PARAMS` — confirm_name 누락
+- 404 `COMPLEX_NOT_FOUND`
+- 409 `NAME_MISMATCH` — DB의 name 과 confirm_name 불일치 (strict 비교, trim 없음)
+- 503 `DB_NOT_CONFIGURED`
+- 500 `INTERNAL_ERROR`
+
+구현은 단일 트랜잭션 안에서 `regulation_diff` 를 먼저 명시적으로 정리한 뒤 `complex` 를 삭제한다 (`regulation_diff` FK 에 `ON DELETE CASCADE` 가 없어 cascade chain 이 막히는 것을 우회). schema migration 후보는 `regulation_diff` FK 에 `ON DELETE CASCADE` 추가 — Phase 3 이후 합류 예정.
 
 ## 설계 원칙
 - **멀티테넌트 단일 서버**: 단지당 서버를 띄우지 않고, 한 서버 인스턴스가 여러 단지를 서빙한다. `complex_id`(내부 ULID 또는 K-apt `kaptCode`)는 모든 tool 호출과 모든 테이블의 1급 키다.
