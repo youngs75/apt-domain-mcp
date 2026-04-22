@@ -209,13 +209,16 @@ async def list_documents(request: Request) -> JSONResponse:
                 return _err("COMPLEX_NOT_FOUND", f"등록되지 않은 단지: {complex_id}", 404)
             rows = await conn.fetch(
                 """
-                SELECT document_id, kind, title, source_path, sha256, pages, created_at
+                SELECT document_id, kind, title, source_path, sha256, pages, uploaded_at
                 FROM document
                 WHERE complex_id = $1
-                ORDER BY created_at DESC
+                ORDER BY uploaded_at DESC
                 """,
                 complex_id,
             )
+        # Response key stays `created_at` for API contract compatibility with
+        # admin UI consumers; schema column is `uploaded_at`.
+        # 응답 키는 admin UI 계약 호환을 위해 `created_at` 으로 유지 (스키마 컬럼은 `uploaded_at`).
         return _json({
             "complex_id": complex_id,
             "count": len(rows),
@@ -227,7 +230,7 @@ async def list_documents(request: Request) -> JSONResponse:
                     "source_path": r["source_path"],
                     "sha256": r["sha256"],
                     "pages": r["pages"],
-                    "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                    "created_at": r["uploaded_at"].isoformat() if r["uploaded_at"] else None,
                 }
                 for r in rows
             ],

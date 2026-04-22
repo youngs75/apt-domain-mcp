@@ -262,3 +262,93 @@ def test_delete_complex_success(client):
 
     calls = [str(c) for c in mock_conn.execute.call_args_list]
     assert any("complex" in c for c in calls)
+
+
+# ---------------------------------------------------------------------------
+# GET /complexes/{id}/documents
+# ---------------------------------------------------------------------------
+
+def test_list_documents_no_db_returns_503(client):
+    # DB pool not configured — should short-circuit with 503
+    # DB 풀 미설정 — 503 으로 즉시 반환
+    with patch("apt_domain_mcp.admin.api.db.get_pool", return_value=None):
+        r = client.get("/complexes/ANY_ID/documents", headers=auth())
+    assert r.status_code == 503
+    assert r.json()["error"] == "DB_NOT_CONFIGURED"
+
+
+def test_list_documents_complex_not_found_returns_404(client):
+    # _complex_exists returns False → 404 COMPLEX_NOT_FOUND
+    # _complex_exists 가 False 반환 → 404 COMPLEX_NOT_FOUND
+    mock_conn = AsyncMock()
+    mock_conn.fetchrow = AsyncMock(return_value=None)
+
+    with patch("apt_domain_mcp.admin.api.db.get_pool", return_value=MagicMock()), \
+         patch("apt_domain_mcp.admin.api.db.acquire") as mock_acquire:
+        mock_acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        r = client.get("/complexes/UNKNOWN/documents", headers=auth())
+
+    assert r.status_code == 404
+    assert r.json()["error"] == "COMPLEX_NOT_FOUND"
+
+
+def test_list_documents_returns_rows(client):
+    # Happy path — rows are returned and uploaded_at is serialized under
+    # the API-contract key `created_at`.
+    # 정상 경로 — row 들이 반환되고 uploaded_at 은 API 계약 키 `created_at` 으로 직렬화.
+    from datetime import datetime, timezone
+
+    ts_newer = datetime(2026, 4, 22, 9, 0, tzinfo=timezone.utc)
+    ts_older = datetime(2026, 4, 14, 12, 0, tzinfo=timezone.utc)
+    fake_rows = [
+        {
+            "document_id": "DOC_NEW",
+            "kind": "meeting",
+            "title": "회의록 2026-04-22 (정기)",
+            "source_path": "synthetic/meetings/2026-04-22_regular.md",
+            "sha256": "beef",
+            "pages": None,
+            "uploaded_at": ts_newer,
+        },
+        {
+            "document_id": "DOC_OLD",
+            "kind": "regulation",
+            "title": "관리규약 v1",
+            "source_path": "synthetic/regulation_v1.md",
+            "sha256": "cafe",
+            "pages": 84,
+            "uploaded_at": ts_older,
+        },
+    ]
+
+    mock_conn = AsyncMock()
+    # fetchrow used by _complex_exists — return a truthy row to signal existence
+    # fetchrow 는 _complex_exists 가 사용 — 존재 신호로 truthy row 반환
+    mock_conn.fetchrow = AsyncMock(return_value={"?column?": 1})
+    mock_conn.fetch = AsyncMock(return_value=fake_rows)
+
+    with patch("apt_domain_mcp.admin.api.db.get_pool", return_value=MagicMock()), \
+         patch("apt_domain_mcp.admin.api.db.acquire") as mock_acquire:
+        mock_acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        r = client.get("/complexes/01ABC/documents", headers=auth())
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["complex_id"] == "01ABC"
+    assert body["count"] == 2
+    assert body["documents"][0]["document_id"] == "DOC_NEW"
+    assert body["documents"][0]["kind"] == "meeting"
+    assert body["documents"][0]["created_at"] == ts_newer.isoformat()
+    assert body["documents"][1]["document_id"] == "DOC_OLD"
+    assert body["documents"][1]["pages"] == 84
+    assert body["documents"][1]["created_at"] == ts_older.isoformat()
+
+    # Verify query targets `uploaded_at`, not the legacy `created_at`
+    # 쿼리가 `uploaded_at` 을 사용 (이전 버그였던 `created_at` 이 아님) 확인
+    fetch_sql = str(mock_conn.fetch.call_args_list[0])
+    assert "uploaded_at" in fetch_sql
+    assert "created_at" not in fetch_sql
