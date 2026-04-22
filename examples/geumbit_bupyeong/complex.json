@@ -1,0 +1,17 @@
+{
+  "complex_id": "01HXXKGT0000000000000000DD",
+  "name": "부평 금빛마을 아파트",
+  "address": "인천광역시 부평구 경인로 666",
+  "sido": "인천광역시",
+  "sigungu": "부평구",
+  "units": 812,
+  "buildings": 10,
+  "max_floors": 15,
+  "use_approval_date": "2005-07-25",
+  "management_type": "위탁관리",
+  "heating_type": "개별난방(도시가스)",
+  "parking_slots": 880,
+  "external_ids": {
+    "kapt_code": "A66666666"
+  }
+}

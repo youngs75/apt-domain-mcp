@@ -1,0 +1,17 @@
+{
+  "complex_id": "01HXXHNL0000000000000000CC",
+  "name": "세종 하늘마을 아파트",
+  "address": "세종특별자치시 다솜로 777",
+  "sido": "세종특별자치시",
+  "sigungu": "",
+  "units": 2408,
+  "buildings": 28,
+  "max_floors": 35,
+  "use_approval_date": "2021-11-30",
+  "management_type": "위탁관리",
+  "heating_type": "지역난방",
+  "parking_slots": 3612,
+  "external_ids": {
+    "kapt_code": "A77777777"
+  }
+}

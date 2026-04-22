@@ -1,0 +1,17 @@
+{
+  "complex_id": "01HXXSONG0000000000000000BB",
+  "name": "송파 솔향마을 아파트",
+  "address": "서울특별시 송파구 양재대로 888",
+  "sido": "서울특별시",
+  "sigungu": "송파구",
+  "units": 480,
+  "buildings": 6,
+  "max_floors": 22,
+  "use_approval_date": "1998-05-20",
+  "management_type": "자치관리",
+  "heating_type": "개별난방(도시가스)",
+  "parking_slots": 520,
+  "external_ids": {
+    "kapt_code": "A88888888"
+  }
+}

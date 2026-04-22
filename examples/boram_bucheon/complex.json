@@ -1,0 +1,17 @@
+{
+  "complex_id": "01HXXBRM0000000000000000EE",
+  "name": "부천 보람마을 아주 아파트",
+  "address": "경기도 부천시 원미구 조마루로 222",
+  "sido": "경기도",
+  "sigungu": "부천시 원미구",
+  "units": 1024,
+  "buildings": 12,
+  "max_floors": 20,
+  "use_approval_date": "2003-04-15",
+  "management_type": "위탁관리",
+  "heating_type": "지역난방",
+  "parking_slots": 1150,
+  "external_ids": {
+    "kapt_code": "A55555555"
+  }
+}
