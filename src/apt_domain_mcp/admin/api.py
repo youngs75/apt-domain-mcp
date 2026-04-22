@@ -332,13 +332,6 @@ async def delete_complex(request: Request) -> JSONResponse:
                     409,
                 )
             async with conn.transaction():
-                # regulation_revision FK has no ON DELETE CASCADE, so its rows
-                # block the cascade chain from complex → regulation_version.
-                # Clear them first, then let CASCADE handle the rest.
-                await conn.execute(
-                    "DELETE FROM regulation_revision WHERE complex_id = $1",
-                    complex_id,
-                )
                 await conn.execute(
                     "DELETE FROM complex WHERE complex_id = $1",
                     complex_id,

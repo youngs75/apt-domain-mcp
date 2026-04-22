@@ -260,7 +260,5 @@ def test_delete_complex_success(client):
     assert body["complex_id"] == "TARGET_ID"
     assert body["status"] == "deleted"
 
-    # Verify regulation_revision was cleaned up before complex deletion
     calls = [str(c) for c in mock_conn.execute.call_args_list]
-    assert any("regulation_revision" in c for c in calls)
     assert any("complex" in c for c in calls)
